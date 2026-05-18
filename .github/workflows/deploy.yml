@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - claude/mobile-browser-version-HkYFU
+      - claude/fix-deployment-issues-QikBu
       - main
 
 permissions:
