@@ -1,11 +1,17 @@
-import { useRef, useState } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import { useTimelineStore, genId } from '../../stores/timeline-store'
 import { usePlayerStore } from '../../stores/player-store'
 import { getVideoMeta, getAudioMeta } from '../../engine/video-meta'
 import { TextSheet } from '../panels/TextSheet'
 import type { VideoClip, AudioClip } from '../../types'
 
-export function Toolbar() {
+export interface ToolbarHandle {
+  openImport: () => void
+  openText: () => void
+  export: () => void
+}
+
+export const Toolbar = forwardRef<ToolbarHandle>((_props, ref) => {
   const fileRef = useRef<HTMLInputElement>(null)
   const addClip = useTimelineStore(s => s.addClip)
   const selectedId = useTimelineStore(s => s.selectedId)
@@ -18,6 +24,7 @@ export function Toolbar() {
   const [progress, setProgress] = useState(0)
   const [textOpen, setTextOpen] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -104,6 +111,12 @@ export function Toolbar() {
     splitClipAt(selectedId, currentTime)
   }
 
+  useImperativeHandle(ref, () => ({
+    openImport: () => fileRef.current?.click(),
+    openText: () => setTextOpen(true),
+    export: handleExport,
+  }))
+
   return (
     <>
       <div className="toolbar">
@@ -115,30 +128,40 @@ export function Toolbar() {
             className="btn-tool"
             onClick={() => fileRef.current?.click()}
             disabled={importing}
-            title="Import video or audio"
+            title="Import video or audio (I)"
           >
-            {importing ? '⏳' : '＋'} Import
+            {importing ? '⏳' : '＋'} <span className="btn-label">Import</span>
+            <kbd className="kbd-hint">I</kbd>
           </button>
           <button
             className="btn-tool"
             onClick={() => setTextOpen(true)}
-            title="Add text overlay"
+            title="Add text overlay (T)"
           >
-            T Text
+            T <span className="btn-label">Text</span>
+            <kbd className="kbd-hint">T</kbd>
           </button>
           <button
             className="btn-tool"
             onClick={handleSplit}
             disabled={!selectedId}
-            title="Split selected clip at playhead"
+            title="Split selected clip at playhead (S)"
           >
-            ✂ Split
+            ✂ <span className="btn-label">Split</span>
+            <kbd className="kbd-hint">S</kbd>
+          </button>
+          <button
+            className="btn-tool"
+            onClick={() => setHelpOpen(true)}
+            title="Keyboard shortcuts (?)"
+          >
+            ? <span className="btn-label">Help</span>
           </button>
           <button
             className="btn-export"
             onClick={handleExport}
             disabled={exporting || totalDuration() === 0}
-            title="Export video"
+            title="Export video (⌘E)"
           >
             {exporting ? `${progress}%` : '⬇ Export'}
           </button>
@@ -153,6 +176,32 @@ export function Toolbar() {
         onChange={handleImport}
       />
       <TextSheet open={textOpen} onClose={() => setTextOpen(false)} />
+      {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
     </>
+  )
+})
+
+function HelpModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <span className="modal-title">Keyboard Shortcuts</span>
+          <button className="sheet-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="shortcuts">
+          <div className="shortcut-row"><kbd>Space</kbd><span>Play / Pause</span></div>
+          <div className="shortcut-row"><kbd>←</kbd> <kbd>→</kbd><span>Seek 0.1s (Shift = 5s)</span></div>
+          <div className="shortcut-row"><kbd>Home</kbd> / <kbd>End</kbd><span>Jump to start / end</span></div>
+          <div className="shortcut-row"><kbd>I</kbd><span>Import media</span></div>
+          <div className="shortcut-row"><kbd>T</kbd><span>Add text</span></div>
+          <div className="shortcut-row"><kbd>S</kbd><span>Split selected clip at playhead</span></div>
+          <div className="shortcut-row"><kbd>Delete</kbd><span>Delete selected clip</span></div>
+          <div className="shortcut-row"><kbd>Esc</kbd><span>Deselect clip</span></div>
+          <div className="shortcut-row"><kbd>+</kbd> / <kbd>-</kbd><span>Zoom timeline in / out</span></div>
+          <div className="shortcut-row"><kbd>⌘E</kbd><span>Export video</span></div>
+        </div>
+      </div>
+    </div>
   )
 }
